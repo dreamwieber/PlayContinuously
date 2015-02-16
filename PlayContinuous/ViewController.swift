@@ -1,25 +1,48 @@
 //
 //  ViewController.swift
-//  PlayContinuous
+//  BufferTest
 //
-//  Created by Gregory Wieber on 2/16/15.
+//  Created by Gregory Wieber on 2/13/15.
 //  Copyright (c) 2015 Apposite. All rights reserved.
 //
 
 import UIKit
+import AVFoundation
 
 class ViewController: UIViewController {
+    
+    let engine = AVAudioEngine()
+    var player: AVAudioPlayerNode!
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
+        
+        player = AVAudioPlayerNode()
+        let playerFormat = player.outputFormatForBus(0)
+        let sampleRate:AVAudioFrameCount = AVAudioFrameCount(playerFormat.sampleRate)
+        let bufferPair = BufferPair(format: playerFormat, sampleRate: sampleRate, bufferLength: 1024)
+        engine.attachNode(player)
+        engine.connect(player, to: engine.outputNode, format: playerFormat)
+        var error:NSError? = nil
+        engine.startAndReturnError(&error)
+        
+        player.playContinuously(bufferPair: bufferPair) { buffer, time in
+            let phaseIncrement = sinePhaseIncrementWithFreq(440.0, sampleRate:Double(sampleRate))
+            var phase = phaseIncrement * Double(time.sampleTime)
+
+            for i in 0..<Int(buffer.frameLength) {
+                phase += phaseIncrement
+                let sample = sin(phase)
+                let channelCount = Int(buffer.format.channelCount)
+                
+                for channel in 0..<channelCount {
+                    buffer.floatChannelData[channel][i] = Float(sample)
+                }
+            }
+        }
     }
 
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
+    @IBAction func stopPlayer(sender: AnyObject) {
+        player.stop()
     }
-
-
 }
-
